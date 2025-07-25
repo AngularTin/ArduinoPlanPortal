@@ -154,12 +154,13 @@ void construct_site(WiFiClient &client) {
   </div>
   )rawliteral"; 
 
-  html += R"rawliteral(
-    <div class="color-picker-container">
-      <label for="colorInput">Vælg farve </label>
-      <input type="color" id="colorInput" value="#ff00ff" onchange="sendColor()" />
-    </div>
-    )rawliteral";
+  html += "<div class=\"color-picker-container\">";
+  char hexColor[8];
+  sprintf(hexColor, "#%02X%02X%02X", maincolor.red, maincolor.green, maincolor.blue);
+
+  html += "<input type='color' id='rgb' value='" + String(hexColor) + "'>";
+  html += "<label> Hvid: <input type='range' id='white' min='0' max='255' value='" + String(maincolor.white) + "'></label>";
+  html += "<button onclick='sendColor()'>Sæt Farve</button></div>";
 
   if (prevIDs[0] != "00000000") {
     html += R"rawliteral(
@@ -246,13 +247,20 @@ void construct_site(WiFiClient &client) {
       }
 
   function sendColor() {
-    const hex = document.getElementById("colorInput").value;
-    const r = parseInt(hex.substring(1, 3), 16);
-    const g = parseInt(hex.substring(3, 5), 16);
-    const b = parseInt(hex.substring(5, 7), 16);
+        const rgbHex = document.getElementById("rgb").value;
+        const white = document.getElementById("white").value;
 
-    fetch(`/setcolor?r=${r}&g=${g}&b=${b}&t=${Date.now()}`, { method: "GET" });
-}
+        // Convert #RRGGBB to r, g, b
+        const r = parseInt(rgbHex.substr(1, 2), 16);
+        const g = parseInt(rgbHex.substr(3, 2), 16);
+        const b = parseInt(rgbHex.substr(5, 2), 16);
+
+        const url = `/setcolor?r=${r}&g=${g}&b=${b}&w=${white}`;
+        fetch(url)
+          .then(res => res.text())
+          .then(text => console.log("Server response:", text));
+      }
+
   let currentMode = 0;
 
   function setMode(mode) {

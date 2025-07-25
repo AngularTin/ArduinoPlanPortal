@@ -8,31 +8,16 @@ void appendID(const String& newID) {
   prevIDs[0] = newID;
 }
 
-// Isolerer stien i request'en
-String extractPath(const String& request) {
-  int start = request.indexOf(' ');
-  if (start == -1) return "";
-
-  int end = request.indexOf(' ', start + 1);
-  if (end == -1) return "";
-
-  return request.substring(start + 1, end);
-}
-
 
 // REST Backend
-void handlerestrequest(const String& path) {
+void handlerestrequest(const char* path) {
   // EDIT endpoint:  /edit?i=<index>&v=<value>
   
-  if (path.startsWith("ping")) {
+  if (strncmp(path, "ping", 4)==0) {
     Serial.println("pong");
-  } else if (path.startsWith("edit")) {
-    int i_pos = path.indexOf("i=");
-    int amp_pos = path.indexOf('&', i_pos);
-    int v_pos = path.indexOf("v=", amp_pos);
-    if (i_pos >= 0 && amp_pos > i_pos && v_pos > amp_pos) {
-      int selected_id = path.substring(i_pos + 2, amp_pos).toInt();
-      int new_value   = path.substring(v_pos + 2).toInt();
+  } else if (strncmp(path, "edit", 4)==0) {
+      int selected_id = path[7] - '0';
+      int new_value   = path[11] - '0';
       if (editRAM(selected_id, new_value)) {
         Serial.print("Edited entry ");
         Serial.print(selected_id);
@@ -41,29 +26,19 @@ void handlerestrequest(const String& path) {
       } else {
         Serial.println("Edit failed: index out of range");
       }
-    } else {
-      Serial.println("Edit failed: bad query format");
-    }
-
   // DELETE endpoint: /delete?i=<index>
-  } else if (path.startsWith("delete")) {
-    int i_pos = path.indexOf("i=");
-    if (i_pos >= 0) {
-      int selected_id = path.substring(i_pos + 2).toInt();
+  } else if (strncmp(path, "delete", 6)==0) {
+      int selected_id = path[9] - '0';
+      Serial.print(selected_id);
       if (removeRAM(selected_id)) {
         Serial.print("Removed entry ");
         Serial.println(selected_id);
       } else {
         Serial.println("Remove failed: index out of range");
-      }
-    } else {
-      Serial.println("Remove failed: bad query format");
-    }
+      } 
   // Add cart endpoint: /addcard?i=<index>
-  } else if (path.startsWith("addcard")) {
-    int i_pos = path.indexOf("i=");
-    if (i_pos >= 0) {
-      int selected_index = path.substring(i_pos + 2).toInt();
+  } else if (strncmp(path, "addcard", 7)==0) {
+      int selected_index = path[10] - '0';
       String selected_card_id = prevIDs[selected_index];
       Serial.print(selected_card_id);
 
@@ -89,13 +64,23 @@ void handlerestrequest(const String& path) {
           Serial.println(" failed: index out of range");
         }
       }
+  } // Endpoint til at sætte farve /setcolor?r=123&g=45&b=67&w=89
+  else if (strncmp(path, "setcolor?", 9) == 0) {
+    int r = 0, g = 0, b = 0, w = 0;
+    sscanf(path, "setcolor?r=%d&g=%d&b=%d&w=%d", &r, &g, &b, &w);
+    maincolor.red = r;
+    maincolor.green = g;
+    maincolor.blue = b;
+    maincolor.white = w;
+
+    //client.println("HTTP/1.1 200 OK");
+    //client.println("Content-Type: text/plain");
+    //client.println("Connection: close");
+    //client.println();
+    //client.println("OK");
+
+  // Endpoint til alt andet
   } else {
-    Serial.println("Add failed: bad query format");
-  }
-  
-  // Endpoint til at sætte tilstand
-} else {
-    Serial.print("Unknown path: ");
-    Serial.println(path);
+    Serial.println("Unknown path");
   }
 }

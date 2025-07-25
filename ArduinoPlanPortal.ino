@@ -20,18 +20,31 @@ const int MAX_IDS = 10;
 String prevIDs[MAX_IDS];
 
 // Konfiguration til DB via EEPROM 
-static const int16_t ADDR_ENTRY_COUNT  = 0;                  // 2-byte int16 count
-static const int   ENTRY_ID_LEN       = 8;                  // fixed-længde ID bytes
-static const int   ENTRY_DATA_LEN     = sizeof(int16_t);    // 2 bytes
-static const int   ENTRY_SIZE         = ENTRY_ID_LEN + ENTRY_DATA_LEN;
-static const int   ADDR_ENTRIES_BASE  = ADDR_ENTRY_COUNT + sizeof(int16_t);
-static const int   MAX_ENTRIES        = 50;                 // Ændrer så EEPROM ikke overfyldes
+const int16_t ADDR_ENTRY_COUNT  = 0;                  // 2-byte int16 count
+const int   ENTRY_ID_LEN       = 8;                  // fixed-længde ID bytes
+const int   ENTRY_DATA_LEN     = sizeof(int16_t);    // 2 bytes
+const int   ENTRY_SIZE         = ENTRY_ID_LEN + ENTRY_DATA_LEN;
+const int   ADDR_ENTRIES_BASE  = ADDR_ENTRY_COUNT + sizeof(int16_t);
+const int   MAX_ENTRIES        = 50;                 // Ændrer så EEPROM ikke overfyldes
 
+// TIl at sætte farven
+struct Color {
+  int red;
+  int green;
+  int blue;
+  int white;
+};
 
+Color maincolor;
 
 // Login til hotspot
-char ssid[] = "Den Magiske Portal";
-char pass[] = "odderuwu"; // tihi
+const char ssid[] = "Den Magiske Portal";
+const char pass[] = "odderuwu"; // tihi
+
+// Hvor meget kode efter første / som faktisk processeres, hjælper med performance
+const int MAX_REQUEST_LEN = 32;
+const int SKIP_AMOUNT = 4;
+
 
 WiFiServer server(80);
 
@@ -67,6 +80,10 @@ void setup() {
 
   pushRAM("Test1234", 0);
   pushRAM("Oddere69", 1);
+
+  // Starter uden farve
+  maincolor = {255,0,0,0};
+
 }
 
 int prev_time = 0;
@@ -87,44 +104,49 @@ void loop() {
   WiFiClient client = server.available();
   if (client) {
     Serial.println("Begin!");
-    t();
-    // Konstruerer request, relevante del er mellem første '/' or ' '
-    String path = "";
-    bool meet_slash = false;
-    while (client.connected()) {
+    
+    // Konstruerer request
+    char path[MAX_REQUEST_LEN] = "";
+    int i = 0;
+    while (i < MAX_REQUEST_LEN + SKIP_AMOUNT) {
       if (client.available()) {
         char c = client.read();
-        if (meet_slash) {
-          if (c==' ') break;
-          path += c;
-        } else if (c=='/') {
-          meet_slash=true;
-        }
+        if (i > SKIP_AMOUNT) {
+          if (c == ' ') {
+            path[i - SKIP_AMOUNT] = '\0';
+            break;
+          }
+          path[i - SKIP_AMOUNT - 1] = c;
+          }
+        i++;
+        } 
       }
-    }
-    t();
 
     // Hånter request
     Serial.print("Path: ");
     Serial.println(path);
 
-    if (path == "doplaysound") {
+    if (strcmp(path, "doplaysound")==0) {
       client.println("HTTP/1.1 200 OK");
       client.println("Content-Type: text/plain");
       client.println("Connection: close");
       client.println();
       client.println(0);
     } // Den beder om et browsericon, no way in hell at sådan et bliver lavet
-      else if (path == "favicon.ico") {
+      else if (strcmp(path, "favicon.ico")==0) {
       client.println("HTTP/1.1 204 No Content");
       client.println("Connection: close");
       client.println();
-    } else if (path == "") {
+    } else if (strcmp(path, "")==0) {
       construct_site(client);
     } else {
       handlerestrequest(path);
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-Type: text/plain");
+      client.println("Connection: close");
+      client.println();
+      client.println("OK");
     }
-
     delay(1);
     client.stop();
     return;
