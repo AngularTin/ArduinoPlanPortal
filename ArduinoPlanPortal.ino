@@ -21,11 +21,11 @@ String prevIDs[MAX_IDS];
 
 // Konfiguration til DB via EEPROM 
 static const int16_t ADDR_ENTRY_COUNT  = 0;                  // 2-byte int16 count
-static const int   ENTRY_ID_LEN       = 8;                  // fixed-length ID bytes
+static const int   ENTRY_ID_LEN       = 8;                  // fixed-længde ID bytes
 static const int   ENTRY_DATA_LEN     = sizeof(int16_t);    // 2 bytes
 static const int   ENTRY_SIZE         = ENTRY_ID_LEN + ENTRY_DATA_LEN;
 static const int   ADDR_ENTRIES_BASE  = ADDR_ENTRY_COUNT + sizeof(int16_t);
-static const int   MAX_ENTRIES        = 50;                 // adjust to fit EEPROM size
+static const int   MAX_ENTRIES        = 50;                 // Ændrer så EEPROM ikke overfyldes
 
 
 
@@ -70,6 +70,11 @@ void setup() {
 }
 
 int prev_time = 0;
+
+void t() {
+  Serial.println(millis() - prev_time);
+}
+
 // Main loop
 void loop() {
   int new_time = millis();
@@ -81,23 +86,45 @@ void loop() {
 
   WiFiClient client = server.available();
   if (client) {
-    // Konstuer request
-    String request = "";
+    Serial.println("Begin!");
+    t();
+    // Konstruerer request, relevante del er mellem første '/' or ' '
+    String path = "";
+    bool meet_slash = false;
     while (client.connected()) {
       if (client.available()) {
         char c = client.read();
-        request += c;
-        if (c == '\n' && request.endsWith("\r\n\r\n")) break;
+        if (meet_slash) {
+          if (c==' ') break;
+          path += c;
+        } else if (c=='/') {
+          meet_slash=true;
+        }
       }
     }
+    t();
 
-    String path = extractPath(request);
+    // Hånter request
     Serial.print("Path: ");
     Serial.println(path);
 
-    handlerequest(path);
+    if (path == "doplaysound") {
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-Type: text/plain");
+      client.println("Connection: close");
+      client.println();
+      client.println(0);
+    } // Den beder om et browsericon, no way in hell at sådan et bliver lavet
+      else if (path == "favicon.ico") {
+      client.println("HTTP/1.1 204 No Content");
+      client.println("Connection: close");
+      client.println();
+    } else if (path == "") {
+      construct_site(client);
+    } else {
+      handlerestrequest(path);
+    }
 
-    construct_site(client);
     delay(1);
     client.stop();
     return;

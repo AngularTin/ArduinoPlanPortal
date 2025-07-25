@@ -1,3 +1,5 @@
+// Helper functions for web protocl logic 
+
 // Logic for ID lit 
 void appendID(const String& newID) {
   for (int i = MAX_IDS - 1; i > 0; i--) {
@@ -19,12 +21,12 @@ String extractPath(const String& request) {
 
 
 // REST Backend
-void handlerequest(const String& path) {
+void handlerestrequest(const String& path) {
   // EDIT endpoint:  /edit?i=<index>&v=<value>
   
-  if (path.startsWith("/ping")) {
+  if (path.startsWith("ping")) {
     Serial.println("pong");
-  } else if (path.startsWith("/edit")) {
+  } else if (path.startsWith("edit")) {
     int i_pos = path.indexOf("i=");
     int amp_pos = path.indexOf('&', i_pos);
     int v_pos = path.indexOf("v=", amp_pos);
@@ -44,7 +46,7 @@ void handlerequest(const String& path) {
     }
 
   // DELETE endpoint: /delete?i=<index>
-  } else if (path.startsWith("/delete")) {
+  } else if (path.startsWith("delete")) {
     int i_pos = path.indexOf("i=");
     if (i_pos >= 0) {
       int selected_id = path.substring(i_pos + 2).toInt();
@@ -58,7 +60,7 @@ void handlerequest(const String& path) {
       Serial.println("Remove failed: bad query format");
     }
   // Add cart endpoint: /addcard?i=<index>
-  } else if (path.startsWith("/addcard")) {
+  } else if (path.startsWith("addcard")) {
     int i_pos = path.indexOf("i=");
     if (i_pos >= 0) {
       int selected_index = path.substring(i_pos + 2).toInt();
