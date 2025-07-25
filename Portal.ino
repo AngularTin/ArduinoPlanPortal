@@ -1,0 +1,113 @@
+#include <WiFiS3.h>
+#include "SPI.h"
+#include "MFRC522.h"
+#include <Arduino.h>
+#include <EEPROM.h>
+
+#define SS_PIN 10
+#define RST_PIN 9
+
+int LEDPin = 3;   // Status LED
+int mode = 0;
+
+
+// Setup til rfidlæser
+MFRC522 rfid(SS_PIN, RST_PIN);
+
+MFRC522::MIFARE_Key key;
+
+const int MAX_IDS = 10;
+String prevIDs[MAX_IDS];
+
+// Konfiguration til DB via EEPROM 
+static const int16_t ADDR_ENTRY_COUNT  = 0;                  // 2-byte int16 count
+static const int   ENTRY_ID_LEN       = 8;                  // fixed-length ID bytes
+static const int   ENTRY_DATA_LEN     = sizeof(int16_t);    // 2 bytes
+static const int   ENTRY_SIZE         = ENTRY_ID_LEN + ENTRY_DATA_LEN;
+static const int   ADDR_ENTRIES_BASE  = ADDR_ENTRY_COUNT + sizeof(int16_t);
+static const int   MAX_ENTRIES        = 50;                 // adjust to fit EEPROM size
+
+
+
+// Login til hotspot
+char ssid[] = "Den Magiske Portal";
+char pass[] = "odderuwu"; // tihi
+
+WiFiServer server(80);
+
+void setup() {
+  // Setup serial monitoering for debugging 
+  Serial.begin(115200);
+  while (!Serial);
+
+  // Setup server
+  WiFi.beginAP(ssid, pass);
+  while (WiFi.status() != WL_AP_LISTENING) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nAccess Point started!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  server.begin();
+
+  // Setup rfidlæser
+  SPI.begin();
+  rfid.PCD_Init();
+  pinMode(LEDPin, OUTPUT);
+
+  for (int i = 0; i < MAX_IDS; i++) {
+    prevIDs[i] = "00000000";   
+  }
+  
+  // Setup DB
+  loadDBtoRAM();
+
+  pushRAM("Test1234", 0);
+  pushRAM("Oddere69", 1);
+}
+
+int prev_time = 0;
+// Main loop
+void loop() {
+  int new_time = millis();
+  int delta_t = new_time - prev_time; 
+  prev_time = new_time;
+  if (delta_t > 35) {
+    Serial.println(delta_t);
+  }
+
+  WiFiClient client = server.available();
+  if (client) {
+    // Konstuer request
+    String request = "";
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        request += c;
+        if (c == '\n' && request.endsWith("\r\n\r\n")) break;
+      }
+    }
+
+    String path = extractPath(request);
+    Serial.print("Path: ");
+    Serial.println(path);
+
+    handlerequest(path);
+
+    construct_site(client);
+    delay(1);
+    client.stop();
+    return;
+  }
+  
+  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+    handle_rfid();
+  }
+
+}
+
+
+
