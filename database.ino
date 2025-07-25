@@ -1,8 +1,8 @@
 
 // Grundenhed for DB 
 struct Entry {
-  char     id[ENTRY_ID_LEN];  // raw 8 bytes
-  int16_t  data;              // associated data
+  char     id[ENTRY_ID_LEN];
+  int16_t  data;
 };
 
 // Til RAM kopien 

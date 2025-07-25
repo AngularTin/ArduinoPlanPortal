@@ -20,7 +20,7 @@ void handle_rfid() {
   appendID(strID);
   delay(500);
 
-  if (strID.indexOf("5A206BEA") >= 0) {  //put your own tap card key;
+  if (strID.indexOf("5A206BEA") >= 0) {
     Serial.println("**Adgang Tilladt**");
     digitalWrite(LEDPin, HIGH);
     delay (100);

@@ -122,7 +122,7 @@ void loop() {
         } 
       }
 
-    // Hånter request
+    // Håndter request
     Serial.print("Path: ");
     Serial.println(path);
 
