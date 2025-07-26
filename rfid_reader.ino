@@ -1,3 +1,11 @@
+// Logic for ID list 
+void appendID(const String& newID) {
+  for (int i = MAX_IDS - 1; i > 0; i--) {
+    prevIDs[i] = prevIDs[i - 1];
+  }
+  prevIDs[0] = newID;
+}
+
 void handle_rfid() {
   MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
   // Check is the PICC of Classic MIFARE type
@@ -29,7 +37,7 @@ void handle_rfid() {
     digitalWrite(LEDPin, HIGH);
     delay (100);
     digitalWrite(LEDPin, LOW);
-
+    int shouldPlaySound = 1;
     return;
   }
   else {

@@ -1,4 +1,4 @@
-
+ 
 // Grundenhed for DB 
 struct Entry {
   char     id[ENTRY_ID_LEN];

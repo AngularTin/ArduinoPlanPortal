@@ -41,6 +41,10 @@ Color maincolor;
 const char ssid[] = "Den Magiske Portal";
 const char pass[] = "odderuwu"; // tihi
 
+// Bruges til om der skal afspilles lyd
+int shouldPlaySound = 0;
+
+
 // Hvor meget kode efter første / som faktisk processeres, hjælper med performance
 const int MAX_REQUEST_LEN = 32;
 const int SKIP_AMOUNT = 4;
@@ -83,7 +87,6 @@ void setup() {
 
   // Starter uden farve
   maincolor = {255,0,0,0};
-
 }
 
 int prev_time = 0;
@@ -102,9 +105,7 @@ void loop() {
   }
 
   WiFiClient client = server.available();
-  if (client) {
-    Serial.println("Begin!");
-    
+  if (client) {    
     // Konstruerer request
     char path[MAX_REQUEST_LEN] = "";
     int i = 0;
@@ -125,29 +126,9 @@ void loop() {
     // Håndter request
     Serial.print("Path: ");
     Serial.println(path);
+    handlerequest(client, path);
 
-    if (strcmp(path, "doplaysound")==0) {
-      client.println("HTTP/1.1 200 OK");
-      client.println("Content-Type: text/plain");
-      client.println("Connection: close");
-      client.println();
-      client.println(0);
-    } // Den beder om et browsericon, no way in hell at sådan et bliver lavet
-      else if (strcmp(path, "favicon.ico")==0) {
-      client.println("HTTP/1.1 204 No Content");
-      client.println("Connection: close");
-      client.println();
-    } else if (strcmp(path, "")==0) {
-      construct_site(client);
-    } else {
-      handlerestrequest(path);
-      client.println("HTTP/1.1 200 OK");
-      client.println("Content-Type: text/plain");
-      client.println("Connection: close");
-      client.println();
-      client.println("OK");
-    }
-    delay(1);
+    delay(2);
     client.stop();
     return;
   }
@@ -155,7 +136,6 @@ void loop() {
   if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
     handle_rfid();
   }
-
 }
 
 

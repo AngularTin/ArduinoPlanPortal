@@ -1,3 +1,79 @@
+void construct_recent_table(WiFiClient &client) {
+  String html = "";
+  
+  if (prevIDs[0] != "00000000") {
+    html += R"rawliteral(
+    <h2>Seneste RFID-Tags</h2>
+    <table>
+      <tr><th>#</th><th>ID</th><th>Gem</th></tr>
+    )rawliteral";
+    for (int i = 0; i < MAX_IDS; i++) {
+      if (prevIDs[i] == "00000000") break;
+      html += "<tr><td>";
+      html += String(i);
+      html += "</td><td>";
+      html += prevIDs[i];
+      html += "</td><td><button onclick=\"addCard(";
+      html += String(i);
+      html += ")\">Gem</button></td></tr>";
+    }
+    html += "</table>";
+  }
+  client.print(html);
+}
+
+
+void construct_saved_table(WiFiClient &client) {
+  if (ramEntryCount == 0) {
+    client.print("");
+    return;
+  }
+
+  String html = R"rawliteral(
+    <h2>Gemte RFID-Tags</h2>
+    <table>
+      <tr><th>#</th><th>Kort-ID</th><th>Tilstand</th><th>Slet</th></tr>
+  )rawliteral";
+  
+  const char* labels[5] = {"Ingen","Bl&aring","R&oslashd","Gr&oslashn", "Selvvalgt"};
+  for (int i = 0; i < ramEntryCount; i++) {
+    char idBuf[ENTRY_ID_LEN + 1];
+    memcpy(idBuf, ramEntries[i].id, ENTRY_ID_LEN);
+    idBuf[ENTRY_ID_LEN] = '\0';
+
+    html += "<tr><td>";
+    html += String(i);
+    html += "</td><td>";
+    html += String(idBuf);
+    html += "</td><td><select onchange=\"editValue(";
+    html += String(i);
+    html += ",this.value)\">";
+
+    for (int v = 0; v < 5; v++) {
+      html += "<option value=\"";
+      html += String(v);
+      html += "\"";
+      if (ramEntries[i].data == v) html += " selected";
+      html += ">";
+      html += labels[v];
+      html += "</option>";
+    }
+
+    html += "</select></td><td><button onclick=\"deleteEntry(";
+    html += String(i);
+    html += ")\">Slet</button></td></tr>";
+  }
+
+   html += R"rawliteral(
+    </table>
+    <button class="commit-btn" onclick="commitChanges()">Gem til Fast Hukommelse</button>
+  )rawliteral";
+
+  client.print(html);
+}
+
+
+
 void construct_site(WiFiClient &client) {
   String html = R"rawliteral(
   <!DOCTYPE html>
@@ -162,67 +238,30 @@ void construct_site(WiFiClient &client) {
   html += "<label> Hvid: <input type='range' id='white' min='0' max='255' value='" + String(maincolor.white) + "'></label>";
   html += "<button onclick='sendColor()'>Sæt Farve</button></div>";
 
-  if (prevIDs[0] != "00000000") {
-    html += R"rawliteral(
-    <h2>Seneste RFID-Tags</h2>
-    <table>
-      <tr><th>#</th><th>ID</th><th>Gem</th></tr>
-    )rawliteral";
-    for (int i = 0; i < MAX_IDS; i++) {
-      if (prevIDs[i] == "00000000") break;
-      html += "<tr><td>";
-      html += String(i);
-      html += "</td><td>";
-      html += prevIDs[i];
-      html += "</td><td><button onclick=\"addCard(";
-      html += String(i);
-      html += ")\">Gem</button></td></tr>";
-    }
-    html += "</table>";
-  }
+  html += "<button onclick='reloadTables()'>Genindlæs tabeller</button>";
+
+  html += "<div id='latestrfidtable'></div>";
+
+  html += "<div id='savedrfidtable'></div>";
 
   html += R"rawliteral(
-    <h2>Gemte RFID-Tags</h2>
-    <table>
-      <tr><th>#</th><th>Kort-ID</th><th>Tilstand</th><th>Slet</th></tr>
-  )rawliteral";
-
-  const char* labels[5] = {"Ingen","Bl&aring","R&oslashd","Gr&oslashn", "Selvvalgt"};
-  for (int i = 0; i < ramEntryCount; i++) {
-    char idBuf[ENTRY_ID_LEN + 1];
-    memcpy(idBuf, ramEntries[i].id, ENTRY_ID_LEN);
-    idBuf[ENTRY_ID_LEN] = '\0';
-
-    html += "<tr><td>";
-    html += String(i);
-    html += "</td><td>";
-    html += String(idBuf);
-    html += "</td><td><select onchange=\"editValue(";
-    html += String(i);
-    html += ",this.value)\">";
-
-    for (int v = 0; v < 5; v++) {
-      html += "<option value=\"";
-      html += String(v);
-      html += "\"";
-      if (ramEntries[i].data == v) html += " selected";
-      html += ">";
-      html += labels[v];
-      html += "</option>";
+  <script defer>
+    // Alt med tabeller
+    function loadTable(id, endpoint) {
+      fetch(endpoint)
+        .then(res => res.text())
+        .then(html => {
+          document.getElementById(id).innerHTML = html;
+        });
     }
 
-    html += "</select></td><td><button onclick=\"deleteEntry(";
-    html += String(i);
-    html += ")\">Slet</button></td></tr>";
-  }
+    function reloadTables() {
+      loadTable('latestrfidtable', '/senesterfid');
+      loadTable('savedrfidtable', '/gemterfid');
+    }
 
-  html += R"rawliteral(
-    </table>
-    <button class="commit-btn" onclick="commitChanges()">Gem til Fast Hukommelse</button>
-  )rawliteral";
+    // Diverse serverkald for knapper
 
-   html += R"rawliteral(
-  <script>
     function sendRequest(path) {
       return fetch(path + '&t=' + Date.now(), { method: 'GET' });
     }
@@ -231,21 +270,33 @@ void construct_site(WiFiClient &client) {
     }
     function deleteEntry(i) {
       sendRequest(`/delete?i=${i}`)
-        .then(() => location.reload());
+        .then(() => loadTable('savedrfidtable', '/gemterfid'));
     }
     function addCard(i) {
       sendRequest(`/addcard?i=${i}`)
-        .then(() => location.reload());
+        .then(() => loadTable('savedrfidtable', '/gemterfid'));
     }
     function commitChanges() {
       sendRequest('/commit')
         .then(() => alert('Ændringer er gemt!'));
     }
-    window.onload = () => {
+
+    // Opsætning ved load/reload
+    document.addEventListener("DOMContentLoaded", () => {
       history.replaceState({}, '', '/');
       document.getElementById("mode0").classList.add("selected");
-      }
 
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          reloadTables();
+        }, 50); // wait 50ms to ensure screen is rendered
+      });
+
+
+    });
+
+
+  // Sætter farve
   function sendColor() {
         const rgbHex = document.getElementById("rgb").value;
         const white = document.getElementById("white").value;
@@ -260,6 +311,8 @@ void construct_site(WiFiClient &client) {
           .then(res => res.text())
           .then(text => console.log("Server response:", text));
       }
+
+  // Gør at farven ved tilstandsknapperne virker
 
   let currentMode = 0;
 
